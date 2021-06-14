@@ -1,0 +1,180 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform:
+  - AttiniDeploymentPlan
+  - AWS::Serverless-2016-10-31
+
+Parameters:
+  AttiniEnvironmentName:
+    Type: String
+
+  AttiniDistributionName:
+    Type: String
+
+
+Resources:
+  WebsiteDeploymentPlan:
+    Type: Attini::Deploy::DeploymentPlan
+    Properties:
+      DeploymentPlan:
+        StartAt: Backend
+        States:
+
+          Backend:
+            Type: AttiniCfn
+            Properties:
+              Template: /backend/template.yaml
+              StackName: !Sub ${AttiniEnvironmentName}-backend
+            Next: StaticWebsite
+
+          StaticWebsite:
+            Type: AttiniCfn
+            Properties:
+              Template: /website.yaml
+              StackName: !Sub ${AttiniEnvironmentName}-static-website
+              Parameters:
+                BackendUrl.$: !Sub $.cfnOutput.${AttiniEnvironmentName}-backend.BackendApi
+            Next: DeployWebsiteLambda
+
+          DeployWebsiteLambda:
+            Type: Task
+            Resource: !GetAtt DeployWebsiteLambda.Arn
+            End: true
+
+
+
+  DeployWebsiteLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Lambda that copies website files from an Attini distribution to an s3 bucket, then is invalidates the Cloudfront distribution
+      InlineCode: |
+          import json
+          import boto3
+          import logging
+          import os
+          import time
+          import mimetypes
+          from botocore.config import Config
+          from botocore.exceptions import ClientError
+
+
+          config = Config(
+              retries = {
+                  'max_attempts': 20,
+                  'mode': 'standard'
+              }
+          )
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          s3_resource = boto3.resource('s3', config=config)
+          s3_client = boto3.client('s3', config=config)
+          cf_client = boto3.client('cloudfront')
+
+
+          def invalidate_cloudfront(distribution_id):
+              logger.info(f"Invalidateing distribution: {distribution_id}")
+              cf_client.create_invalidation(
+                  DistributionId=distribution_id,
+                  InvalidationBatch={
+                      'Paths': {
+                          'Quantity': 1,
+                          'Items': [
+                              '/*',
+                          ]
+                      },
+                      'CallerReference': str(int(time.time()))
+                  }
+              )
+
+
+          def get_mime_type(new_key):
+              mime_type = mimetypes.guess_type(new_key, strict=True)[0]
+              if not mime_type:
+                  mime_type="binary/octet-stream"
+              return mime_type
+
+
+          def copy_new_files(target_bucket, deploy_id):
+              prefix=f"{os.environ['AttiniEnvironmentName']}/{os.environ['AttiniDistributionName']}/{deploy_id}/distribution-origin/src/"
+              logger.info(f"Copying from attini artifact store, {prefix}")
+              objects = s3_client.list_objects_v2(
+                      Bucket=os.environ["AttiniArtifactStore"],
+                      Prefix=prefix,
+                      MaxKeys=1000)
+
+              copy_source = {
+                  "Bucket": os.environ["AttiniArtifactStore"]
+              }
+
+              for obj in objects["Contents"]:
+                  copy_source["Key"]=obj["Key"]
+
+                  new_key = str(obj["Key"].split("/src/")[1])
+                  meme_type=get_mime_type(new_key)
+
+                  object = s3_resource.Object(target_bucket, new_key)
+                  object.copy_from(
+                          CopySource=copy_source,
+                          MetadataDirective="REPLACE",
+                          ContentType=meme_type
+                  )
+
+
+          def delete_all_s3_object(bucket):
+              logger.info(f"Deleting all objects in bucket: {bucket}")
+              bucket = s3_resource.Bucket(bucket)
+              bucket.objects.all()
+              for o in bucket.objects.all():
+                  o.delete()
+                  logger.info(f"Deleting {o.key}")
+              return True
+
+          def lambda_handler(event, context):
+
+              logger.info(f'Got event: {json.dumps(event)}')
+
+              target_bucket=event["cfnOutput"][f"{os.environ['AttiniEnvironmentName']}-static-website"]["WebassetsBucket"]
+              deploy_id=event["deploymentOriginData"]["distributionId"]
+
+              cloudfront_distribution_id=event["cfnOutput"][f"{os.environ['AttiniEnvironmentName']}-static-website"]["CloudFrontDistributionId"]
+
+              delete_all_s3_object(target_bucket)
+              copy_new_files(target_bucket, deploy_id)
+              invalidate_cloudfront(cloudfront_distribution_id)
+              return event
+
+      Environment:
+        Variables:
+          AttiniEnvironmentName: !Ref AttiniEnvironmentName
+          AttiniDistributionName: !Ref AttiniDistributionName
+          AttiniArtifactStore: !Sub attini-artifact-store-${AWS::Region}-${AWS::AccountId}
+      Handler: index.lambda_handler
+      MemorySize: 512
+      Runtime: python3.8
+      Timeout: 600
+      Policies:
+        Statement:
+          - Action:
+            - s3:List*
+            - s3:Get*
+            - s3:PutObject*
+            - s3:ListBucket
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:s3:::attini-artifact-store-${AWS::Region}-${AWS::AccountId}/*
+              - !Sub arn:aws:s3:::attini-artifact-store-${AWS::Region}-${AWS::AccountId}
+              - !Sub arn:aws:s3:::${AttiniEnvironmentName}-webassets-bucket/*
+              - !Sub arn:aws:s3:::${AttiniEnvironmentName}-webassets-bucket
+          - Action:
+            - cloudfront:CreateInvalidation
+            Effect: Allow
+            Resource: "*"
+
+
+  DeployWebsiteLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${DeployWebsiteLambda}
+      RetentionInDays: 30

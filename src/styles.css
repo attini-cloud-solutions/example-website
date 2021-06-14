@@ -1,0 +1,81 @@
+* {
+  box-sizing: border-box;
+  font-family: "DM Sans";
+}
+
+/* Style the body */
+body {
+  margin: 0;
+}
+
+/* Header/logo Title */
+.header {
+  padding: 80px;
+  text-align: center;
+  background: #D6E3D4;
+  color: #002018;
+}
+
+.header img {
+  width: 20%;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+}
+
+/* Increase the font size of the heading */
+.header h1 {
+  font-size: 40px;
+  font-family: "DM Sans";
+}
+
+/* Main column */
+.main {
+  flex: 70%;
+  background-color: #002018;
+  padding: 20px;
+}
+
+/* Footer */
+.footer {
+  padding: 20px;
+  text-align: center;
+  background: white;
+}
+
+.button {
+  background-color: #002018;
+  color: white;
+  font-family: "DM Sans";
+  text-align: center;
+  padding: 15px 32px;
+  text-decoration: none;
+  display: inline-block;
+  margin-top:20px;
+}
+
+.input {
+  margin-top:20px;
+}
+
+
+/* Responsive layout - when the screen is less than 700px wide, make the two columns stack on top of each other instead of next to each other */
+@media screen and (max-width: 700px) {
+  .row {
+    flex-direction: column;
+  }
+}
+
+/* Responsive layout - when the screen is less than 400px wide, make the navigation links stack on top of each other instead of next to each other */
+@media screen and (max-width: 400px) {
+  .navbar a {
+    float: none;
+    width: 100%;
+  }
+}
+
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("../fonts/DMSans-Regular.ttf");
+}

@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM Template for website backend
+
+Globals:
+  Function:
+    Timeout: 30
+
+Resources:
+  BackendFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.lambda_handler
+      Runtime: python3.8
+      InlineCode: |
+          import json
+          import logging
+          import boto3
+          import os
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          dynamodb_resource = boto3.resource('dynamodb')
+          table = dynamodb_resource.Table(os.environ["DB_NAME"])
+          def put_value(value):
+            table.put_item(
+              Item={
+                'Id': "1",
+                'Value': value,
+              }
+            )
+
+          def get_value():
+            return table.get_item(Key={'Id': "1"})["Item"]["Value"]
+
+          def lambda_handler(event, context):
+            logger.info(f"Got event: {json.dumps(event)}")
+
+            if "httpMethod" not in event or event["httpMethod"] not in ["POST", "GET"]:
+              return {
+                "statusCode": 404
+              }
+            elif event["httpMethod"] == "POST":
+              put_value(event["body"])
+              return {
+                "statusCode": 200
+              }
+            elif event["httpMethod"] == "GET":
+              return {
+                "statusCode": 200,
+                "body": get_value()
+              }
+
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BackendDatabase
+      Environment:
+        Variables:
+          DB_NAME: !Ref BackendDatabase
+      Events:
+        GetValue:
+          Type: Api
+          Properties:
+            Path: /api/get-value
+            Method: get
+        PutValue:
+          Type: Api
+          Properties:
+            Path: /api/put-value
+            Method: post
+
+  BackendDatabase:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: !Sub ${AWS::StackName}-db
+      PrimaryKey:
+        Name: Id
+        Type: String
+      SSESpecification:
+        SSEEnabled: true
+
+Outputs:
+
+  BackendApi:
+    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+    Value: !Sub "${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com"
+
+  BackendFunction:
+    Description: "Hello World Lambda Function ARN"
+    Value: !GetAtt BackendFunction.Arn
+
+  BackendFunctionIamRole:
+    Description: "Implicit IAM Role created for Hello World function"
+    Value: !GetAtt BackendFunctionRole.Arn

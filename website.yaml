@@ -1,0 +1,193 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Static site with s3 and cloudfront
+
+Parameters:
+  AttiniEnvironmentName:
+    Type: String
+    Description: The name of the environment the stack created belongs to.
+
+  PriceClass:
+    Type: String
+    Description: The CloudFront distribution price class
+    Default: 'PriceClass_100'
+    AllowedValues:
+      - 'PriceClass_100'
+      - 'PriceClass_200'
+      - 'PriceClass_All'
+
+  BackendUrl:
+    Type: String
+
+Resources:
+  WebassetsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AttiniEnvironmentName}-webassets-bucket
+      WebsiteConfiguration:
+        ErrorDocument: 404.html
+        IndexDocument: index.html
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          -
+            ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          -
+            Id: MultipartUploadLifecycleRule
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+          -
+            Id: NoncurrentVersionExpirationInDays
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: false
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebassetsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: CloudfrontAccess
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
+            Action:
+              - "s3:GetObject"
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:s3:::${WebassetsBucket}/*
+
+
+  CloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: WebAssets
+
+  CachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Comment: String
+        DefaultTTL: 2
+        MaxTTL: 3
+        MinTTL: 1
+        Name: !Sub ${AttiniEnvironmentName}-demo-cache-policy
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: none
+          EnableAcceptEncodingGzip: true
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: all
+
+  BackendCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Comment: String
+        DefaultTTL: 0
+        MaxTTL: 1
+        MinTTL: 0
+        Name: !Sub ${AttiniEnvironmentName}-demo-backend-cache-policy
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: none
+          EnableAcceptEncodingGzip: true
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: all
+
+
+  CloudFrontDistribution:
+    DependsOn: WebassetsBucket
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: Website Distribution
+        Origins:
+          - DomainName: !Sub ${WebassetsBucket}.s3-${AWS::Region}.amazonaws.com
+            Id: !Sub origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}
+          - DomainName: !Ref BackendUrl
+            Id: backend
+            OriginPath: /Prod
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginKeepaliveTimeout: 60
+              OriginReadTimeout: 60
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - "HEAD"
+            - "GET"
+            - "OPTIONS"
+            - "PUT"
+            - "PATCH"
+            - "POST"
+            - "DELETE"
+          CachedMethods:
+            - "HEAD"
+            - "GET"
+          CachePolicyId: !Ref CachePolicy
+          TargetOriginId: !Sub origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}
+          ViewerProtocolPolicy: redirect-to-https
+        CacheBehaviors:
+          - AllowedMethods:
+              - "HEAD"
+              - "GET"
+              - "OPTIONS"
+              - "PUT"
+              - "PATCH"
+              - "POST"
+              - "DELETE"
+            TargetOriginId: backend
+            CachePolicyId: !Ref BackendCachePolicy
+            ViewerProtocolPolicy: allow-all
+            PathPattern: /api/*
+        DefaultRootObject: index.html
+        Enabled: True
+        PriceClass: !Ref PriceClass
+        CustomErrorResponses:
+        - ErrorCode: 403
+          ResponseCode: 404
+          ResponsePagePath: /404.jpg
+        - ErrorCachingMinTTL: 120
+          ErrorCode: 500
+          ResponseCode: 500
+          ResponsePagePath: /500.jpg
+      Tags:
+        - Key: AttiniEnvironmentName
+          Value: !Ref AttiniEnvironmentName
+
+
+Outputs:
+  WebassetsBucket:
+    Description: The name of the S3 bucket for the Static hostname
+    Value: !Ref WebassetsBucket
+    Export:
+      Name: !Sub ${AWS::StackName}:bucket-name
+
+  CloudFrontDistributionId:
+    Description: Id of the cloudfront distribution
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub ${AWS::StackName}:cloud-front-distribution-id
+
+  CloudFrontDistributionDomainName:
+    Description: Domain name of the cloudfront distribution
+    Value: !GetAtt  CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub ${AWS::StackName}:cloud-front-distribution-domain-name
