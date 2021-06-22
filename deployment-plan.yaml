@@ -165,8 +165,8 @@ Resources:
             Resource:
               - !Sub arn:aws:s3:::attini-artifact-store-${AWS::Region}-${AWS::AccountId}/*
               - !Sub arn:aws:s3:::attini-artifact-store-${AWS::Region}-${AWS::AccountId}
-              - !Sub arn:aws:s3:::${AttiniEnvironmentName}-webassets-bucket/*
-              - !Sub arn:aws:s3:::${AttiniEnvironmentName}-webassets-bucket
+              - !Sub arn:aws:s3:::${AttiniEnvironmentName}-webassets-bucket-${AWS::Region}-${AWS::AccountId}/*
+              - !Sub arn:aws:s3:::${AttiniEnvironmentName}-webassets-bucket-${AWS::Region}-${AWS::AccountId}
           - Action:
             - cloudfront:CreateInvalidation
             Effect: Allow

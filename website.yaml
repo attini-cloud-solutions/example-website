@@ -22,7 +22,7 @@ Resources:
   WebassetsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${AttiniEnvironmentName}-webassets-bucket
+      BucketName: !Sub ${AttiniEnvironmentName}-webassets-bucket-${AWS::Region}-${AWS::AccountId}
       WebsiteConfiguration:
         ErrorDocument: 404.html
         IndexDocument: index.html
