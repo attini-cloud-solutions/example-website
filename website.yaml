@@ -42,8 +42,6 @@ Resources:
             Id: NoncurrentVersionExpirationInDays
             Status: Enabled
             NoncurrentVersionExpirationInDays: 30
-      VersioningConfiguration:
-        Status: Enabled
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: false
