@@ -24,13 +24,13 @@ Resources:
             Properties:
               Template: /backend/template.yaml
               StackName: !Sub ${AttiniEnvironmentName}-backend
-            Next: StaticWebsite
+            Next: Website
 
-          StaticWebsite:
+          Website:
             Type: AttiniCfn
             Properties:
               Template: /website.yaml
-              StackName: !Sub ${AttiniEnvironmentName}-static-website
+              StackName: !Sub ${AttiniEnvironmentName}-website
               Parameters:
                 BackendUrl.$: !Sub $.cfnOutput.${AttiniEnvironmentName}-backend.BackendApi
             Next: DeployWebsiteLambda
@@ -134,10 +134,10 @@ Resources:
 
               logger.info(f'Got event: {json.dumps(event)}')
 
-              target_bucket=event["cfnOutput"][f"{os.environ['AttiniEnvironmentName']}-static-website"]["WebassetsBucket"]
+              target_bucket=event["cfnOutput"][f"{os.environ['AttiniEnvironmentName']}-website"]["WebassetsBucket"]
               deploy_id=event["deploymentOriginData"]["distributionId"]
 
-              cloudfront_distribution_id=event["cfnOutput"][f"{os.environ['AttiniEnvironmentName']}-static-website"]["CloudFrontDistributionId"]
+              cloudfront_distribution_id=event["cfnOutput"][f"{os.environ['AttiniEnvironmentName']}-website"]["CloudFrontDistributionId"]
 
               delete_all_s3_object(target_bucket)
               copy_new_files(target_bucket, deploy_id)
