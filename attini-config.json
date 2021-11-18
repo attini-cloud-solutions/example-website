@@ -1,7 +1,0 @@
-{
-  "distributionName": "website",
-  "initDeployConfig": {
-    "template": "deployment-plan.yaml",
-    "stackName": "${environment}-${distributionName}-init-deploy"
-  }
-}

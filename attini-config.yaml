@@ -1,0 +1,12 @@
+distributionName: website
+initDeployConfig:
+  template: deployment-plan.yaml
+  stackName: "${environment}-${distributionName}-init-deploy"
+package:
+  prePackage:
+    commands:
+      - echo "Working from temp dir $ATTINI_WORK_DIR"
+      - attini configure set-dist-id --id my-git-commit-id --override
+  postPackage:
+    commands:
+      - echo "Done with package"
