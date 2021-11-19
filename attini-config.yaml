@@ -6,7 +6,7 @@ package:
   prePackage:
     commands:
       - echo "Working from temp dir $ATTINI_WORK_DIR"
-      - attini configure set-dist-id --id my-git-commit-id --override
+      - attini configure set-dist-id --random --override
   postPackage:
     commands:
       - echo "Done with package"
