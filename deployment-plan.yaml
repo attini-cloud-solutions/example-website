@@ -32,7 +32,7 @@ Resources:
               Template: /website.yaml
               StackName: !Sub ${AttiniEnvironmentName}-website
               Parameters:
-                BackendUrl.$: !Sub $.cfnOutput.${AttiniEnvironmentName}-backend.BackendApi
+                BackendUrl.$: !Sub $.output.Backend.BackendApi
             Next: DeployWebsiteLambda
 
           DeployWebsiteLambda:
