@@ -134,10 +134,10 @@ Resources:
 
               logger.info(f'Got event: {json.dumps(event)}')
 
-              target_bucket=event["cfnOutput"][f"{os.environ['AttiniEnvironmentName']}-website"]["WebassetsBucket"]
+              target_bucket=event["output"][f"{os.environ['AttiniEnvironmentName']}-website"]["WebassetsBucket"]
               deploy_id=event["deploymentOriginData"]["distributionId"]
 
-              cloudfront_distribution_id=event["cfnOutput"][f"{os.environ['AttiniEnvironmentName']}-website"]["CloudFrontDistributionId"]
+              cloudfront_distribution_id=event["output"][f"{os.environ['AttiniEnvironmentName']}-website"]["CloudFrontDistributionId"]
 
               delete_all_s3_object(target_bucket)
               copy_new_files(target_bucket, deploy_id)
