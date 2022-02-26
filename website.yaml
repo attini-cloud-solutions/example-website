@@ -114,7 +114,7 @@ Resources:
       DistributionConfig:
         Comment: Attini example website
         Origins:
-          - DomainName: !Sub ${WebassetsBucket}.s3-${AWS::Region}.amazonaws.com
+          - DomainName: !Sub ${WebassetsBucket}.s3.${AWS::Region}.amazonaws.com
             Id: !Sub origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}
             S3OriginConfig:
               OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}
