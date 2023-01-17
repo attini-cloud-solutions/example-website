@@ -16,30 +16,23 @@ Resources:
     Type: Attini::Deploy::DeploymentPlan
     Properties:
       DeploymentPlan:
-        StartAt: Backend
-        States:
+        - Name: Backend
+          Type: AttiniCfn
+          Properties:
+            Template: /backend/template.yaml
+            StackName: !Sub ${AttiniEnvironmentName}-backend
 
-          Backend:
-            Type: AttiniCfn
-            Properties:
-              Template: /backend/template.yaml
-              StackName: !Sub ${AttiniEnvironmentName}-backend
-            Next: Website
+        - Name: Website
+          Type: AttiniCfn
+          Properties:
+            Template: /website.yaml
+            StackName: !Sub ${AttiniEnvironmentName}-website
+            Parameters:
+              BackendUrl.$: $.output.Backend.BackendApi
 
-          Website:
-            Type: AttiniCfn
-            Properties:
-              Template: /website.yaml
-              StackName: !Sub ${AttiniEnvironmentName}-website
-              Parameters:
-                BackendUrl.$: $.output.Backend.BackendApi
-            Next: DeployWebsiteLambda
-
-          DeployWebsiteLambda:
-            Type: Task
-            Resource: !GetAtt DeployWebsiteLambda.Arn
-            End: true
-
+        - Name: DeployWebsiteLambda
+          Type: Task
+          Resource: !GetAtt DeployWebsiteLambda.Arn
 
 
   DeployWebsiteLambda:
